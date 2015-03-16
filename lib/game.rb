@@ -1,6 +1,10 @@
+require 'yaml'
+
 class Game
   attr_accessor :player_guess
-  attr_reader :wrong_letters_remaining, :incorrect_letters, :correct_letters
+  attr_reader :wrong_letters_remaining, :incorrect_letters, :saved_games_file
+
+  @@saved_games_file = './saves'
 
   def initialize(wrong_letters_remaining, answer = self.class.random_word())
     @wrong_letters_remaining = wrong_letters_remaining
@@ -10,16 +14,71 @@ class Game
   end
 
   def play
-    puts "the secret word is #{@player_guess.length} letters long"
-    print_player_guess()
-    puts
+    print_intro()
     while @wrong_letters_remaining > 0
       print_updates()
-      letter = gets.chomp.downcase
-      get_player_guess(letter)
+      puts "type in 'help' or '?' if you need help"
+      input = gets.chomp.downcase
+      handle_input(input)
       break if @player_guess == @answer
     end
     print_outcome()
+  end
+
+  def handle_input(input)
+    case input
+    when 'help', '?'
+      help()
+    when 'save'
+      save_game()
+    when 'load'
+      load_game()
+    when 'display'
+      print_updates()
+      handle_input(gets)
+    else
+      get_player_guess(input)
+    end
+  end
+
+  def help()
+    puts "!!!!!!!!!!!!!!!!!!!!!!"
+    puts "HELP MENU"
+    puts
+    puts "* 'save' to save your progress"
+    puts "* 'load' to load a previous game"
+    puts "* 'display' to display the game so far"
+    puts 
+    puts "to continue playing, just type in your next letter"
+    puts "!!!!!!!!!!!!!!!!!!!!!!"
+    handle_input(gets)
+  end
+
+  def save_game()
+    puts "want to save your game? just enter your name"
+    @name = gets.chomp
+    @timestamp = Time.now.strftime("%Y-%m-%d %T")
+    @filename = "#{@name} #{@timestamp}"
+
+    data = {}
+    instance_variables.map do |v|
+      data[v] = instance_variable_get(v)
+    end
+    saved_game = data.to_yaml
+
+    self.class.save_to_disk(saved_game)
+  end
+
+  def self.save_to_disk(saved_game)
+    File.open(@@saved_games_file, 'a+') do |file|
+      file.write(saved_game)
+    end
+    puts "your game has been saved!"
+  end
+
+  def print_intro()
+    puts "the secret word is #{@player_guess.length} letters long"
+    print_player_guess()
   end
 
   def print_updates()
