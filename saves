@@ -1,0 +1,21 @@
+---
+default: "--- !ruby/object:Game\nsave_key: \nname: \ntimestamp: \nwrong_letters_remaining:
+  6\nanswer: effendi\nplayer_guess:\n- ''\n- ''\n- ''\n- ''\n- ''\n- ''\n- ''\nincorrect_letters:
+  []\n"
+rafael 2015-03-25 14:32:28: |
+  --- !ruby/object:Game
+  save_key: rafael 2015-03-25 14:32:28
+  name: rafael
+  timestamp: '2015-03-25 14:32:28'
+  wrong_letters_remaining: 6
+  answer: foxglove
+  player_guess:
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  incorrect_letters: []

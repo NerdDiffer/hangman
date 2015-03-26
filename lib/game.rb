@@ -1,150 +1,153 @@
-require 'yaml'
-
 class Game
-  attr_accessor :player_guess
-  attr_reader :wrong_letters_remaining, :incorrect_letters, :saved_games_file
-
-  @@saved_games_file = './saves'
+  attr_reader :wrong_letters_remaining, :answer,
+    :player_guess, :incorrect_letters,
+    :name, :save_key, :timestamp, :saved_games_file
 
   def initialize(wrong_letters_remaining, answer = self.class.random_word())
+    @save_key = nil
+    @name = nil
+    @timestamp = nil
     @wrong_letters_remaining = wrong_letters_remaining
     @answer = answer
     @player_guess = Array.new(@answer.length).map{|c| ''}
     @incorrect_letters = []
   end
 
+  @@saved_games_file = './saves'
+  include Save
+  include Load
+  include Show
+
+  def self.saved_games_file; @@saved_games_file; end
+
   def play
-    print_intro()
+    show_intro()
     while @wrong_letters_remaining > 0
-      print_updates()
+      show_updates()
       puts "type in 'help' or '?' if you need help"
       input = gets.chomp.downcase
       handle_input(input)
-      break if @player_guess == @answer
+      break if @player_guess == @answer.split('')
     end
-    print_outcome()
+    show_outcome()
   end
 
+  # wrapper for Save module methods
+  def save_game()
+    save_setup()
+    save_current_game(@@saved_games_file, self)
+  end
+
+  # wrapper for Load module methods
+  def load_game()
+    all_saves = load_yaml(@@saved_games_file)
+    show_all_saves(all_saves)
+
+    choice = load_setup()
+    case choice
+    when 'l'
+      show_all_saves(all_saves)
+      load_game()
+    when 'q'
+      return_to_game()
+    else
+      # enter a name & return all games with a save_key that includes name
+      game_name = find_matching_keys(all_saves)
+      return_to_game() if game_name.nil?
+	    saved_game = YAML::load(all_saves[game_name])
+      puts
+      puts "loaded a game by #{saved_game.name}"
+      puts "from #{saved_game.timestamp}"
+      puts
+	    saved_game.play()
+    end
+  end
+
+  def self.random_word()
+    src = './dictionary.txt'
+    min_length = 5
+    max_length = 12
+
+    begin
+      file = File.readlines(src)
+    rescue
+      puts "unable to read from the dictionary, #{src}"
+      false
+    else
+      word = file.sample().downcase().chomp()
+      return (word.length >= min_length && word.length <= max_length) ?
+        word :
+        self.random_word()
+    end
+  end
+
+  private
   def handle_input(input)
     case input
     when 'help', '?'
-      help()
+      show_help()
     when 'save'
       save_game()
     when 'load'
       load_game()
+    when 'restart'
+      restart_game()
+    when 'list'
+      show_all_saves(load_yaml(@@saved_games_file))
     when 'display'
-      print_updates()
-      handle_input(gets)
+      show_updates()
+      puts
+      input = gets.chomp
+      handle_input(input)
     else
       get_player_guess(input)
     end
   end
 
-  def help()
-    puts "!!!!!!!!!!!!!!!!!!!!!!"
-    puts "HELP MENU"
-    puts
-    puts "* 'save' to save your progress"
-    puts "* 'load' to load a previous game"
-    puts "* 'display' to display the game so far"
-    puts 
-    puts "to continue playing, just type in your next letter"
-    puts "!!!!!!!!!!!!!!!!!!!!!!"
-    handle_input(gets)
-  end
-
-  def save_game()
-    puts "want to save your game? just enter your name"
-    @name = gets.chomp
-    @timestamp = Time.now.strftime("%Y-%m-%d %T")
-    @filename = "#{@name} #{@timestamp}"
-
-    data = {}
-    instance_variables.map do |v|
-      data[v] = instance_variable_get(v)
-    end
-    saved_game = data.to_yaml
-
-    self.class.save_to_disk(saved_game)
-  end
-
-  def self.save_to_disk(saved_game)
-    File.open(@@saved_games_file, 'a+') do |file|
-      file.write(saved_game)
-    end
-    puts "your game has been saved!"
-  end
-
-  def print_intro()
-    puts "the secret word is #{@player_guess.length} letters long"
-    print_player_guess()
-  end
-
-  def print_updates()
-    puts
-    puts '#####'
-    puts
-    puts 'your guess so far:'
-    print_player_guess()
-    puts
-    puts 'list of incorrect letters:'
-    print_incorrect_letters()
-    puts
-    print_wrong_letters_remaining()
-  end
-
-  def print_outcome()
-    puts
-    puts "GAME OVER"
-    puts "here is the answer:"
-    puts "#{@answer}"
-  end
-
-  def self.random_word()
-    src = File.readlines('./dictionary.txt')
-    min_length = 5
-    max_length = 12
-
-    word = src.sample().downcase().chomp()
-
-    return (word.length >= min_length && word.length <= max_length) ?
-      word :
-      self.random_word()
-  end
-
-  private
-  def print_player_guess()
-    @player_guess.each do |c|
-      print ( c == '' ? '_ ' : c + ' ' )
+  def restart_game()
+    puts "are you sure you want to restart your game? [y/n]"
+    choice = gets.chomp[0].downcase
+    case choice
+    when 'y'
+      #puts "OK, starting a new game."
+      #puts "how many chances at wrong letters do you want?"
+      #n = gets.chomp.to_i
+      #self.class.new(n)
+    when 'n'
+      return_to_game()
+    else
+      puts "****************************"
+      puts "I didn't get that."
+      puts "Type 'y' for yes. 'n' for no"
+      restart_game()
     end
   end
 
-  def print_incorrect_letters()
-    @incorrect_letters.each{|c| print c + ' ' }
-  end
-
-  def print_wrong_letters_remaining()
-    item = (@wrong_letters_remaining > 1 ? 'letters' : 'letter')
-    puts "you have #{@wrong_letters_remaining} #{item} left"
+  def return_to_game()
+    puts
+    puts 'returning to game in progress'
+    puts
+    return
   end
 
   def get_player_guess(letter)
-    rate_guess(letter)
-    @wrong_letters_remaining -= 1
-    update_letter_sets(letter)
+    answer = @answer.split('')
+    rate_guess(letter, answer)
+    update_letter_sets(letter, answer)
   end
 
-  def rate_guess(letter)
-    answer = @answer.split('')
+  def rate_guess(letter, answer)
     answer.each_with_index do |c, i|
       @player_guess[i] = letter if c == letter
     end
+    @wrong_letters_remaining -= 1 unless answer.member?(letter)
   end
 
-  def update_letter_sets(letter)
-    @incorrect_letters << letter
-    @incorrect_letters.sort!
+  def update_letter_sets(letter, answer)
+    unless answer.member?(letter)
+      @incorrect_letters << letter
+      @incorrect_letters.sort!
+    end
   end
 
 end
